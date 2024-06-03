@@ -1,11 +1,12 @@
 import multiprocessing
 import subprocess
 import threading
+import sys
 
 
 def run_terminal_command(command):
     process = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stdin=subprocess.PIPE, shell=True, executable="/bin/bash", encoding="utf8"
+        command, stdout=sys.stdout, stdin=subprocess.PIPE, shell=True, executable="/bin/bash", encoding="utf8"
     )
 
     return process

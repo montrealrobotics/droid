@@ -104,8 +104,7 @@ class FrankaRobot:
             if self._robot.is_running_policy():
                 self._robot.terminate_current_policy()
             try:
-                time_to_go = self.adaptive_time_to_go(command)
-                self._robot.move_to_joint_positions(command, time_to_go=time_to_go)
+                self._robot.move_to_joint_positions(command)
             except grpc.RpcError:
                 pass
 
@@ -194,7 +193,6 @@ class FrankaRobot:
             robot_state = self.get_robot_state()[0]
         action_dict = {"robot_state": robot_state}
         velocity = "velocity" in action_space
-
         if gripper_action_space is None:
             gripper_action_space = "velocity" if velocity else "position"
         assert gripper_action_space in ["velocity", "policy"]

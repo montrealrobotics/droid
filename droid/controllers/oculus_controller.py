@@ -151,6 +151,8 @@ class VRPolicy:
         euler_action = quat_to_euler(quat_action)
 
         # Calculate Gripper Action #
+        # we scale the gripper value up to handle the bug where controller sometimes doesn't send 
+        # full range of values preventing full gripper closure
         gripper_action = (self.vr_state["gripper"] * 1.5) - robot_gripper
 
         # Calculate Desired Pose #
