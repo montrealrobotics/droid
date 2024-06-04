@@ -20,10 +20,8 @@ fi
 
 # Extract the base directory of the conda installation
 CONDA_DIR=$(dirname $(dirname "$CONDA_PATH"))
-echo $CONDA_DIR
 # Construct the path to the 'activate' script
 ACTIVATE_SCRIPT="$CONDA_DIR/etc/profile.d/conda.sh"
-echo $ACTIVATE_SCRIPT
 # Check if the 'activate' script exists
 if [ ! -f "$ACTIVATE_SCRIPT" ]; then
     echo "Activate script not found at $ACTIVATE_SCRIPT"
