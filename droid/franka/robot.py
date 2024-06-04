@@ -195,7 +195,7 @@ class FrankaRobot:
         velocity = "velocity" in action_space
         if gripper_action_space is None:
             gripper_action_space = "velocity" if velocity else "position"
-        assert gripper_action_space in ["velocity", "policy"]
+        assert gripper_action_space in ["velocity", "position"]
             
 
         if gripper_action_space == "velocity":
