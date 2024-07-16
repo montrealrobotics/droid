@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Exec=gnome-terminal -- /bin/bash -c '/home/r2d2/droid_ws/src/DROID/scripts/launch_robot.sh'
+Name=Start R2D2
+Icon=/home/r2d2/droid_ws/src/DROID/scripts/images/robot.png
+Comment=Launch robot
+Encoding=UTF-8
+Terminal=true
+Type=Application
+Categories=Application;
