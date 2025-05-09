@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Exec=python3 -m webbrowser https://172.16.0.1/
+Name=Open Franka Desk
+Icon=/home/r2d2/droid_ws/src/DROID/scripts/images/desk.png
+Comment=Open Franka Desk Control Interface
+Encoding=UTF-8
+Terminal=false
+Type=Application
+Categories=Application;
