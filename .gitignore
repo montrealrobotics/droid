@@ -1,4 +1,10 @@
 *.DS_Store
 __pycache__
 outputs
+videos/
+data/
+old_data/
+practice_data/
+results/
+*/.vscode
 *egg-info
