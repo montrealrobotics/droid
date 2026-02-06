@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Exec=gnome-terminal -- /bin/bash -c '/home/r2d2/r2d2_ws/src/DROID/scripts/startup_nuc.sh'
+Name=Startup NUC server
+Icon=/home/r2d2/droid_ws/src/DROID/scripts/images/start.png
+Comment=Start the server on the NUC
+Encoding=UTF-8
+Terminal=true
+Type=Application
+Categories=Application;

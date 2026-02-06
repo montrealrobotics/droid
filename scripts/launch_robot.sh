@@ -1,5 +1,6 @@
 #!/bin/bash -i
 source ~/.bashrc
+conda activate robot
 cd $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 python main.py
 sudo usbreset 2b03:f682

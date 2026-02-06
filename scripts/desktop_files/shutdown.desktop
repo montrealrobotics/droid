@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Exec=/home/r2d2/droid_ws/src/DROID/scripts/shutdown_nuc.sh
+Name=Shutdown NUC
+Icon=/home/r2d2/droid_ws/src/DROID/scripts/images/shutdown.png
+Comment=Shutdown the NUC cleanly
+Encoding=UTF-8
+Terminal=true
+Type=Application
+Categories=Application;
