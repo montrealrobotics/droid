@@ -8,8 +8,7 @@ returned Cartesian delta actions.
 Usage:
     python molmoact_client.py \
         --server_host 172.19.0.76 \
-        --server_port 8000 \
-        --external_camera left
+        --server_port 8000
 
 Requires:
     - droid (DROID robot stack)
@@ -43,14 +42,6 @@ def parse_args():
     parser.add_argument("--right_camera_id", type=str, default="24078426")
     parser.add_argument("--left_camera_id", type=str, default="23122133")
     parser.add_argument("--wrist_camera_id", type=str, default="14301394")
-
-    # Which external camera serves as the "side" camera for MolmoAct
-    parser.add_argument(
-        "--external_camera",
-        type=str,
-        default="left",
-        choices=["left", "right"],
-    )
 
     # Server
     parser.add_argument(
@@ -192,14 +183,22 @@ def convert_action_for_droid(
 # Server communication
 # ---------------------------------------------------------------------------
 
-def query_server(ws, side_image: np.ndarray, wrist_image: np.ndarray, instruction: str) -> dict:
-    """Send an observation to the MolmoAct server and return the response.
+def query_server(
+    ws,
+    left_image: np.ndarray,
+    right_image: np.ndarray,
+    wrist_image: np.ndarray,
+    instruction: str,
+) -> dict:
+    """Send all camera images to the MolmoAct server and return the response.
 
+    The server decides which images to use based on its --camera_config.
     Returns dict with keys: actions, trace, depth, raw_text.
     Raises RuntimeError on server-side errors.
     """
     request = json.dumps({
-        "side_image": numpy_to_base64_png(side_image),
+        "left_image": numpy_to_base64_png(left_image),
+        "right_image": numpy_to_base64_png(right_image),
         "wrist_image": numpy_to_base64_png(wrist_image),
         "instruction": instruction,
     })
@@ -245,13 +244,15 @@ def run_rollout(args):
                 while step_count < args.max_timesteps:
                     # --- Observe -------------------------------------------
                     obs = extract_observation(args, env.get_observation())
-                    side_image = obs[f"{args.external_camera}_image"]
-                    wrist_image = obs["wrist_image"]
 
                     # --- Query policy server (protected from Ctrl-C) -------
                     with prevent_keyboard_interrupt():
                         response = query_server(
-                            ws, side_image, wrist_image, instruction,
+                            ws,
+                            obs["left_image"],
+                            obs["right_image"],
+                            obs["wrist_image"],
+                            instruction,
                         )
 
                     actions = response["actions"]
