@@ -261,31 +261,33 @@ def run_rollout(args):
                         continue
 
                     print(
-                        f"  [step {step_count}] received {len(actions)} action chunk(s), executing first"
+                        f"  [step {step_count}] received {len(actions)} action(s), executing all"
                     )
 
-                    # --- Execute only the first action chunk ---------------
-                    action = actions[0]
+                    # --- Execute all actions in the chunk ------------------
+                    for i, action in enumerate(actions):
+                        if step_count >= args.max_timesteps:
+                            break
 
-                    # Read fresh EE pose
-                    state_dict, _ = env.get_state()
-                    current_cartesian = np.array(
-                        state_dict["cartesian_position"]
-                    )
+                        # Read fresh EE pose
+                        state_dict, _ = env.get_state()
+                        current_cartesian = np.array(
+                            state_dict["cartesian_position"]
+                        )
 
-                    droid_action = convert_action_for_droid(
-                        current_cartesian, action,
-                    )
+                        droid_action = convert_action_for_droid(
+                            current_cartesian, action,
+                        )
 
-                    t0 = time.monotonic()
-                    env.step(droid_action)
-                    step_count += 1
+                        t0 = time.monotonic()
+                        env.step(droid_action)
+                        step_count += 1
 
-                    # Rate-limit to match training control frequency
-                    elapsed = time.monotonic() - t0
-                    sleep_time = dt - elapsed
-                    if sleep_time > 0:
-                        time.sleep(sleep_time)
+                        # Rate-limit to match training control frequency
+                        elapsed = time.monotonic() - t0
+                        sleep_time = dt - elapsed
+                        if sleep_time > 0:
+                            time.sleep(sleep_time)
 
             except KeyboardInterrupt:
                 print("\nRollout stopped by user.")
