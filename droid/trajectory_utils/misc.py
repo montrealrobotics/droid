@@ -27,6 +27,7 @@ def collect_trajectory(
     obs_pointer=None,
     save_images=False,
     recording_folderpath=False,
+    recording_tactile_folderpath=False,
     randomize_reset=False,
     reset_robot=True,
 ):
@@ -58,6 +59,8 @@ def collect_trajectory(
         traj_writer = TrajectoryWriter(save_filepath, metadata=metadata, save_images=save_images)
     if recording_folderpath:
         env.camera_reader.start_recording(recording_folderpath)
+    if recording_tactile_folderpath:
+        env.tactile_reader.start_recording(recording_tactile_folderpath + "robotiq_ts")
 
     # Prepare For Trajectory #
     num_steps = 0

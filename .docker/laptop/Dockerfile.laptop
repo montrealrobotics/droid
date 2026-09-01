@@ -37,8 +37,11 @@ RUN wget \
     && rm -f Miniconda3-latest-Linux-x86_64.sh
 ENV PATH /root/miniconda3/bin:$PATH
 
+
 # create conda environment
-RUN conda create -n "robot" -c conda-forge python=3.7 -y
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
+    conda create -n "robot" -c conda-forge python=3.7 -y
 SHELL ["conda", "run", "-n", "robot", "/bin/bash", "-c"]
 
 # install the zed sdk

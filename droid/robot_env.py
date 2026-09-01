@@ -10,11 +10,13 @@ from droid.misc.parameters import hand_camera_id, nuc_ip
 from droid.misc.server_interface import ServerInterface
 from droid.misc.time import time_ms
 from droid.misc.transformations import change_pose_frame
+from droid.misc.tactile_sensor import TactileSensorInterface
 
 
 class RobotEnv(gym.Env):
-    def __init__(self, action_space="cartesian_velocity", gripper_action_space=None, camera_kwargs={}, do_reset=True):
+    def __init__(self, action_space="cartesian_velocity", gripper_action_space=None, camera_kwargs={}, do_reset=True, enable_tactile=False, tactile_port=None):
         # Initialize Gym Environment
+        
         super().__init__()
 
         # Define Action Space #
@@ -29,6 +31,7 @@ class RobotEnv(gym.Env):
         self.randomize_high = np.array([0.1, 0.2, 0.1, 0.3, 0.3, 0.3])
         self.DoF = 7 if ("cartesian" in action_space) else 8
         self.control_hz = 15
+        nuc_ip = None
 
         if nuc_ip is None:
             from franka.robot import FrankaRobot
@@ -41,6 +44,13 @@ class RobotEnv(gym.Env):
         self.camera_reader = MultiCameraWrapper(camera_kwargs)
         self.calibration_dict = load_calibration_info()
         self.camera_type_dict = camera_type_dict
+
+        # Create Tactile Interface
+        self.enable_tactile = enable_tactile
+        self.tactile = None
+        if self.enable_tactile:
+            self.tactile = TactileSensorInterface(port=tactile_port, auto_connect=True)
+            self.enable_tactile = self.tactile.is_connected
 
         # Reset Robot
         if do_reset:
@@ -112,6 +122,12 @@ class RobotEnv(gym.Env):
         state_dict, timestamp_dict = self.get_state()
         obs_dict["robot_state"] = state_dict
         obs_dict["timestamp"]["robot_state"] = timestamp_dict
+
+        # Tactile sensor #
+        if self.enable_tactile and self.tactile:
+            tactile_obs, tactile_timestamp = self.tactile.read_tactile_sensor()
+            obs_dict["tactile"] = tactile_obs
+            obs_dict["timestamp"]["tactile"] = tactile_timestamp
 
         # Camera Readings #
         camera_obs, camera_timestamp = self.read_cameras()

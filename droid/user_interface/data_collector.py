@@ -86,8 +86,11 @@ class DataCollecter:
                 raise ValueError("WARNING: User is trying to collect data without all three cameras running!")
             save_filepath = os.path.join(self.failure_logdir, info["time"], "trajectory.h5")
             recording_folderpath = os.path.join(self.failure_logdir, info["time"], "recordings")
+            recording_tactile_folderpath = os.path.join(self.failure_logdir, info["time"], "tactile_recordings")
             if not os.path.isdir(recording_folderpath):
                 os.makedirs(recording_folderpath)
+            if not os.path.isdir(recording_tactile_folderpath):
+                os.makedirs(recording_tactile_folderpath)
 
         # Collect Trajectory #
         self.traj_running = True
@@ -100,6 +103,7 @@ class DataCollecter:
             obs_pointer=self.obs_pointer,
             reset_robot=reset_robot,
             recording_folderpath=recording_folderpath,
+            recording_tactile_folderpath=recording_tactile_folderpath,
             save_filepath=save_filepath,
             wait_for_controller=True,
         )
