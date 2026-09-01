@@ -31,7 +31,6 @@ class RobotEnv(gym.Env):
         self.randomize_high = np.array([0.1, 0.2, 0.1, 0.3, 0.3, 0.3])
         self.DoF = 7 if ("cartesian" in action_space) else 8
         self.control_hz = 15
-        nuc_ip = None
 
         if nuc_ip is None:
             from franka.robot import FrankaRobot

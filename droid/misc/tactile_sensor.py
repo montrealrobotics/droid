@@ -23,27 +23,27 @@ class TactileSensorInterface:
         target_port = self.port or self.t_sensor.find_sensor()
 
         if not target_port:
-            print("[TactileWrapper Warning] Sensor not found.")
+            print("[TactileSensorInterface Warning] Sensor not found.")
             self.is_connected = False
             return False
 
         if not self.t_sensor.connect(target_port):
-            print(f"[TactileWrapper Warning] Failed to connect to port: {target_port}")
+            print(f"[TactileSensorInterface Warning] Failed to connect to port: {target_port}")
             self.is_connected = False
             return False
 
         if not self.t_sensor.start_autosend(period_ms=1):
-            print("[TactileWrapper Warning] Failed to start data autosend stream.")
+            print("[TactileSensorInterface Warning] Failed to start data autosend stream.")
             self.t_sensor.cleanup()
             self.is_connected = False
             return False
 
         self.t_sensor.detect_connected_fingers()
-        print("[TactileWrapper] Calibrating initial baseline (please leave untouched)...")
+        print("[TactileSensorInterface] Calibrating initial baseline (please leave untouched)...")
         self.calibrate_baseline(num_samples=500)
         
         self.is_connected = True
-        print("[TactileWrapper] Initialization complete.")
+        print("[TactileSensorInterface] Initialization complete.")
         return True
 
     def calibrate_baseline(self, num_samples: int = 200):
@@ -80,7 +80,7 @@ class TactileSensorInterface:
             return None, read_time
 
         tactile_obs = {
-            "connected_fingers": list(self.t_sensor.connected_fingers),
+            "connected_fingers": [finger for finger in self.t_sensor.connected_fingers],
             "fingers": {},
         }
 
@@ -95,7 +95,7 @@ class TactileSensorInterface:
 
             raw_static = np.array(finger.static_tactile, dtype=np.uint16).reshape((7, 4))
 
-            tactile_obs["fingers"][finger_id] = {
+            tactile_obs["fingers"][str(finger_id)] = {
                 "static_tactile": static_corrected,
                 "raw_static_tactile": raw_static,
                 "dynamic_tactile": int(finger.dynamic_tactile),
@@ -103,7 +103,6 @@ class TactileSensorInterface:
                 "gyroscope": np.array(finger.gyroscope, dtype=np.int16),
                 "sensor_timestamp": int(finger.timestamp),
             }
-
         return tactile_obs, read_time
 
     def close(self):

@@ -20,13 +20,13 @@ env = RobotEnv(enable_tactile=args.tactile_sensor)
 if args.left_controller:
     controller = VRPolicy(right_controller=False)
     # Make the data collector
-    data_collector = DataCollecter(env=env, controller=controller, use_tactile_sensor=args.tactile_sensor)
+    data_collector = DataCollecter(env=env, controller=controller)
     # Make the GUI
     user_interface = RobotGUI(robot=data_collector, right_controller=False)
 else:
     controller = VRPolicy(right_controller=True)
     # Make the data collector
-    data_collector = DataCollecter(env=env, controller=controller, use_tactile_sensor=args.tactile_sensor)
+    data_collector = DataCollecter(env=env, controller=controller)
     # Make the GUI
     user_interface = RobotGUI(robot=data_collector, right_controller=True)
 
