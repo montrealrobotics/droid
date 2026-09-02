@@ -7,6 +7,7 @@ ARG ROBOT_IP=${ROBOT_IP}
 ARG NUC_IP=${NUC_IP}
 ARG NUC_ROBOT_CONFIG_DIR=/app/config/${ROBOT_TYPE}
 ARG NUC_OCULUS_DIR=/app/droid/oculus_reader
+ARG NUC_TACTILE_DIR=/app/droid/robotiq_tactile_sensor
 ARG NUC_POLYMETIS_DIR=/app/droid/fairo/polymetis
 ARG NUC_POLYMETIS_CONFIG_DIR=${NUC_POLYMETIS_DIR}/polymetis/conf
 
@@ -71,6 +72,10 @@ RUN add-apt-repository universe && \
     apt-get install -y android-tools-fastboot
 RUN pip3 install -e $NUC_OCULUS_DIR && \
     apt install -y android-tools-adb
+
+# install robotiq tactile sensor
+RUN pip3 install -e $NUC_TACTILE_DIR/python
+RUN pip3 install -r $NUC_TACTILE_DIR/python/requirements.txt
 
 # python environment setup
 RUN pip3 install -e . && \

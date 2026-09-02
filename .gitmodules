@@ -4,3 +4,6 @@
 [submodule "droid/fairo"]
 	path = droid/fairo
 	url = git@github.com:montrealrobotics/fairo.git
+[submodule "droid/robotiq_tactile_sensor"]
+	path = droid/robotiq_tactile_sensor
+	url = https://github.com/montrealrobotics/tactile_sensors.git

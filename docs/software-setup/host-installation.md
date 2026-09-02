@@ -244,6 +244,12 @@ The software for the Oculus application is included under `droid/oculus_reader` 
 pip install -e ./droid/oculus_reader
 ```
 
+The software for the Robotiq tactile sensors is also included as a git submodule, located in `droid/robotiq_tactile_sensor`. Install this in the current environment with:
+
+```bash
+pip install -e ./droid/robotiq_tactile_sensor/python
+```
+
 Next, install the android debug bridge software dependency required to interface with your Oculus Quest through running:
 
 ```bash
@@ -266,10 +272,6 @@ pip install dm-robotics-controllers==0.5.0 --no-deps
 
 Update the IP parameters in `droid/misc/parameters.py`, in particular set `robot_ip` to match the IP address of your robot and `nuc_ip` to match the IP address of your NUC. In addition, set the `robot_serial_number` to match your robot's serial number (found on your franka website, under Settings -> Franka World -> Control S/N). For the `robot_type variable`, enter 'fr3' or 'panda' depending on which Franka robot you are using. Update the Charuco board parameters to match the board you are using. Finally you will need to set the camera ids in this parameters file further details on how to accomplish this are provided later in the guide. 
 
-If you choose to install miniconda instead of anaconda in previous steps of this guide you will need to make the following edits:
-
-In droid/franka change the word anaconda to minicode in the scripts `launch_gripper.sh` and `launch_robot.sh`. Also change the paths to be absolute. Repeat for the `launch_server.sh` file in `scripts/server`
-
 
 # Testing/Validating Entire Setup
 
@@ -284,5 +286,12 @@ With the control server running on the NUC, run the script for testing trajector
 
 ```bash
 conda activate robot
-python scripts/test/collect_trajectory.py
+python scripts/main.py
+```
+
+To run the system with Robotiq tactile sensors:
+
+```bash
+conda activate robot
+python scripts/main.py --tactile_sensor
 ```

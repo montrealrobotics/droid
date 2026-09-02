@@ -2,7 +2,7 @@ import time
 import numpy as np
 from droid.misc.time import time_ms
 
-from core.sensor import TSF85TactileSensor
+from robotiq_tactile_sensor.sensor import TSF85TactileSensor
 
 
 class TactileSensorInterface:

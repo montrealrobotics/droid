@@ -76,6 +76,11 @@ read -p "Have you installed the oculus_reader APK file on your Oculus Quest 2? (
 
 if [ "$first_time" = "no" ]; then
 
+	# install robotiq tactile sensor
+	echo -e "Install robotiq tactile sensor \n"
+	pip3 install -e $ROOT_DIR/droid/robotiq_tactile_sensor/python
+	pip3 install -r $ROOT_DIR/droid/robotiq_tactile_sensor/python/requirements.txt
+
 	# install APK on Oculus device
 	echo -e "Install APK on oculus device \n"
 
@@ -112,6 +117,7 @@ if [ "$first_time" = "no" ]; then
 	echo cleaning up threads ...
 	sleep 5
 	adb kill-server
+
 fi
 
 # expose parameters as environment variables
