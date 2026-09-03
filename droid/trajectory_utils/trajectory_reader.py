@@ -58,10 +58,13 @@ def load_hdf5_to_dict(hdf5_file, index, keys_to_ignore=[]):
 
 
 class TrajectoryReader:
-    def __init__(self, filepath, read_images=True):
+    def __init__(self, filepath, read_images=True, tactile_filepath=None, read_tactile=False):
         self._hdf5_file = h5py.File(filepath, "r")
+        if tactile_filepath is not None:
+            self._hdf5_tactile_file = h5py.File(tactile_filepath, "r")
         is_video_folder = "observations/videos" in self._hdf5_file
         self._read_images = read_images and is_video_folder
+        self._read_tactile = read_tactile
         self._length = get_hdf5_length(self._hdf5_file)
         self._video_readers = {}
         self._index = 0
@@ -86,6 +89,7 @@ class TrajectoryReader:
         if self._read_images:
             camera_obs = self._uncompress_images()
             timestep["observations"]["image"] = camera_obs
+
 
         # Increment Read Index #
         self._index += 1

@@ -1,7 +1,7 @@
 import time
 from collections import defaultdict
 from copy import deepcopy
-
+import h5py
 import cv2
 import numpy as np
 from PIL import Image
@@ -320,19 +320,46 @@ def replay_trajectory(
 
 def load_trajectory(
     filepath=None,
+    tactile_filepath=None,
+    read_tactile=False,
     read_cameras=True,
     recording_folderpath=None,
     camera_kwargs={},
     remove_skipped_steps=False,
     num_samples_per_traj=None,
     num_samples_per_traj_coeff=1.5,
+    max_force_capacity=1200.0,
+    image_shape=(32, 32)
 ):
     read_hdf5_images = read_cameras and (recording_folderpath is None)
     read_recording_folderpath = read_cameras and (recording_folderpath is not None)
 
-    traj_reader = TrajectoryReader(filepath, read_images=read_hdf5_images)
+    traj_reader = TrajectoryReader(filepath, read_images=read_hdf5_images, tactile_filepath=tactile_filepath, read_tactile=read_tactile)
     if read_recording_folderpath:
         camera_reader = RecordedMultiCameraWrapper(recording_folderpath, camera_kwargs)
+
+    tactile_data = None
+    if tactile_filepath is not None:
+        try:
+            with h5py.File(tactile_filepath, "r") as t_file:
+                static_tactile = t_file["static_tactile"][:].astype(np.float32)
+                tactile_ts = t_file["timestamp"][:]
+                baseline = t_file["baseline"][:].astype(np.float32) if "baseline" in t_file else None
+                keep_baseline = t_file.attrs["keep_baseline"]
+
+                # Baseline Subtraction from raw data
+                if baseline is not None and keep_baseline:
+                    static_tactile = static_tactile - baseline
+
+                # Normalise
+                norm_tactile = np.clip(static_tactile / max_force_capacity, 0.0, 1.0)
+
+                tactile_data = {
+                    "frames": norm_tactile,
+                    "timestamps": tactile_ts
+                }
+        except Exception as e:
+            print(f"[load_trajectory] Error loading tactile HDF5: {e}")
 
     horizon = traj_reader.length()
     timestep_list = []
@@ -347,12 +374,48 @@ def load_trajectory(
     else:
         indices_to_save = np.arange(horizon)
 
-    # Iterate Over Trajectory #
-    for i in indices_to_save:
-        # Get HDF5 Data #
+    def frame_to_image(tactile_frame):
+        # Stitch fingers together
+        num_fingers = tactile_frame.shape[0]
+        f0 = tactile_frame[0]
+        f1 = tactile_frame[1] if num_fingers > 1 else np.zeros_like(f0)
+        combined_grid = np.hstack([f0, f1])
+
+        uint8_grid = (combined_grid * 255.0).astype(np.uint8)
+
+        # Upsample using INTER_CUBIC into smooth 32x32 image
+        resized_img = cv2.resize(uint8_grid, dsize=image_shape, interpolation=cv2.INTER_CUBIC)
+
+        # Normalize, image size (32, 32, 1)
+        return (resized_img.astype(np.float32) / 255.0)[..., np.newaxis]
+
+    for i_idx, i in enumerate(indices_to_save):
         timestep = traj_reader.read_timestep(index=i)
 
-        # If Applicable, Get Recorded Data #
+        if tactile_data is not None:
+            # DROID stores timestamps in observation["timestamp"]
+            # Get start and end read time for tactile
+            current_ts_dict = timestep["observation"]["timestamp"].get("tactile", None)
+            prev_ts = current_ts_dict['tactile_read_start']
+            current_ts = current_ts_dict['tactile_read_end']
+
+            t_mask = (tactile_data["timestamps"] >= prev_ts) & (tactile_data["timestamps"] <= current_ts)
+            sub_indices = np.where(t_mask)[0]
+            # due to buffer size there can only be a max of 23 frames
+            if len(sub_indices) == 0:
+                # if no frames, grab the nearest?
+                nearest_idx = np.argmin(np.abs(tactile_data["timestamps"] - current_ts))
+                sub_indices = np.array([nearest_idx])
+
+            # Convert to image
+            window_frames = tactile_data["frames"][sub_indices]
+            image_sub_frames = [frame_to_image(f) for f in window_frames]
+
+            # stack and average, other options?
+            stacked_tactile_image = np.mean(np.stack(image_sub_frames, axis=0), axis=0)
+
+            timestep["observation"]["tactile_image"] = stacked_tactile_image
+
         if read_recording_folderpath:
             timestamp_dict = timestep["observation"]["timestamp"]["cameras"]
             camera_type_dict = {
