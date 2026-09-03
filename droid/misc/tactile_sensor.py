@@ -68,16 +68,18 @@ class TactileSensorInterface:
             tactile_obs (dict): Formatted per-finger sensor readings.
             timestamp (int): Local millisecond timestamp of read execution.
         """
-        read_time = time_ms()
+        timestamp_dict = {"tactile_read_start": time_ms()}
 
         if not self.is_connected or not self.t_sensor:
-            return None, read_time
+            return None, timestamp_dict
 
         for data in self.t_sensor.poll_data():
             self.latest_frame = data
 
+        timestamp_dict["tactile_read_end"] = time_ms()
+
         if self.latest_frame is None:
-            return None, read_time
+            return None, timestamp_dict
 
         tactile_obs = {
             "connected_fingers": [finger for finger in self.t_sensor.connected_fingers],
@@ -103,7 +105,7 @@ class TactileSensorInterface:
                 "gyroscope": np.array(finger.gyroscope, dtype=np.int16),
                 "sensor_timestamp": int(finger.timestamp),
             }
-        return tactile_obs, read_time
+        return tactile_obs, timestamp_dict
 
     def close(self):
         if self.t_sensor:

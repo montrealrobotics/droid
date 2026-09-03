@@ -124,9 +124,9 @@ class RobotEnv(gym.Env):
 
         # Tactile sensor #
         if self.enable_tactile and self.tactile:
-            tactile_obs, tactile_timestamp = self.tactile.read_tactile_sensor()
+            tactile_obs, tactile_timestamp_dict = self.tactile.read_tactile_sensor()
             obs_dict["tactile"] = tactile_obs
-            obs_dict["timestamp"]["tactile"] = tactile_timestamp
+            obs_dict["timestamp"]["tactile"] = tactile_timestamp_dict
 
         # Camera Readings #
         camera_obs, camera_timestamp = self.read_cameras()
