@@ -11,6 +11,7 @@ from droid.camera_utils.info import camera_type_to_string_dict
 from droid.camera_utils.wrappers.recorded_multi_camera_wrapper import RecordedMultiCameraWrapper
 from droid.misc.parameters import *
 from droid.misc.time import time_ms
+from droid.misc.tactile_utils import *
 from droid.misc.transformations import change_pose_frame
 from droid.trajectory_utils.trajectory_reader import TrajectoryReader
 from droid.trajectory_utils.trajectory_writer import TrajectoryWriter
@@ -328,8 +329,6 @@ def load_trajectory(
     remove_skipped_steps=False,
     num_samples_per_traj=None,
     num_samples_per_traj_coeff=1.5,
-    max_force_capacity=1200.0,
-    image_shape=(32, 32)
 ):
     read_hdf5_images = read_cameras and (recording_folderpath is None)
     read_recording_folderpath = read_cameras and (recording_folderpath is not None)
@@ -344,18 +343,9 @@ def load_trajectory(
             with h5py.File(tactile_filepath, "r") as t_file:
                 static_tactile = t_file["static_tactile"][:].astype(np.float32)
                 tactile_ts = t_file["timestamp"][:]
-                baseline = t_file["baseline"][:].astype(np.float32) if "baseline" in t_file else None
-                keep_baseline = t_file.attrs["keep_baseline"]
-
-                # Baseline Subtraction from raw data
-                if baseline is not None and keep_baseline:
-                    static_tactile = static_tactile - baseline
-
-                # Normalise
-                norm_tactile = np.clip(static_tactile / max_force_capacity, 0.0, 1.0)
 
                 tactile_data = {
-                    "frames": norm_tactile,
+                    "frames": static_tactile,
                     "timestamps": tactile_ts
                 }
         except Exception as e:
@@ -373,21 +363,6 @@ def load_trajectory(
         indices_to_save = np.sort(np.random.choice(horizon, size=max_size, replace=False))
     else:
         indices_to_save = np.arange(horizon)
-
-    def frame_to_image(tactile_frame):
-        # Stitch fingers together
-        num_fingers = tactile_frame.shape[0]
-        f0 = tactile_frame[0]
-        f1 = tactile_frame[1] if num_fingers > 1 else np.zeros_like(f0)
-        combined_grid = np.hstack([f0, f1])
-
-        uint8_grid = (combined_grid * 255.0).astype(np.uint8)
-
-        # Upsample using INTER_CUBIC into smooth 32x32 image
-        resized_img = cv2.resize(uint8_grid, dsize=image_shape, interpolation=cv2.INTER_CUBIC)
-
-        # Normalize, image size (32, 32, 1)
-        return (resized_img.astype(np.float32) / 255.0)[..., np.newaxis]
 
     for i_idx, i in enumerate(indices_to_save):
         timestep = traj_reader.read_timestep(index=i)
@@ -407,14 +382,12 @@ def load_trajectory(
                 nearest_idx = np.argmin(np.abs(tactile_data["timestamps"] - current_ts))
                 sub_indices = np.array([nearest_idx])
 
-            # Convert to image
-            window_frames = tactile_data["frames"][sub_indices]
-            image_sub_frames = [frame_to_image(f) for f in window_frames]
+            # Convert to image, average or stack frames?
+            average_tactile_image = average_tactile_subframes(sub_indices)
+            stacked_tactile_image = tactile_image_stack(sub_indices)
 
-            # stack and average, other options?
-            stacked_tactile_image = np.mean(np.stack(image_sub_frames, axis=0), axis=0)
-
-            timestep["observation"]["tactile_image"] = stacked_tactile_image
+            timestep["observation"]["tactile_image_stack"] = stacked_tactile_image
+            timestep["observation"]["average_tactile_image"] = average_tactile_image
 
         if read_recording_folderpath:
             timestamp_dict = timestep["observation"]["timestamp"]["cameras"]

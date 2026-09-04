@@ -9,6 +9,7 @@ from droid.camera_utils.wrappers.multi_camera_wrapper import MultiCameraWrapper
 from droid.misc.parameters import hand_camera_id, nuc_ip
 from droid.misc.server_interface import ServerInterface
 from droid.misc.time import time_ms
+from droid.misc.tactile_utils import tactile_image_stack
 from droid.misc.transformations import change_pose_frame
 from droid.misc.tactile_sensor import TactileSensorInterface
 
@@ -16,7 +17,7 @@ from droid.misc.tactile_sensor import TactileSensorInterface
 class RobotEnv(gym.Env):
     def __init__(self, action_space="cartesian_velocity", gripper_action_space=None, camera_kwargs={}, do_reset=True, enable_tactile=False, tactile_port=None):
         # Initialize Gym Environment
-        
+
         super().__init__()
 
         # Define Action Space #
@@ -96,6 +97,9 @@ class RobotEnv(gym.Env):
     def read_cameras(self):
         return self.camera_reader.read_cameras()
 
+    def read_tactile_sensor(self):
+        return self.tactile.read_tactile_sensor()
+
     def get_state(self):
         read_start = time_ms()
         state_dict, timestamp_dict = self._robot.get_robot_state()
@@ -124,8 +128,14 @@ class RobotEnv(gym.Env):
 
         # Tactile sensor #
         if self.enable_tactile and self.tactile:
-            tactile_obs, tactile_timestamp_dict = self.tactile.read_tactile_sensor()
-            obs_dict["tactile"] = tactile_obs
+            tactile_obs_list, tactile_timestamp_dict = self.read_tactile_sensor()
+            if self.action_space == "policy_action_space":
+                if tactile_obs_list is not None:
+                    tactile_stack = tactile_image_stack(tactile_obs_list)
+                else:
+                    tactile_stack = np.zeros((32, 32, 1), dtype=np.float32)
+
+                obs_dict["tactile_image_stack"] = tactile_stack
             obs_dict["timestamp"]["tactile"] = tactile_timestamp_dict
 
         # Camera Readings #
