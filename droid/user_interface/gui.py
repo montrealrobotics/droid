@@ -5,6 +5,10 @@ import threading
 import time
 import tkinter as tk
 import webbrowser
+import matplotlib.pyplot as plt
+
+from tkinter import CENTER, StringVar, Label
+from tkinter.font import Font
 
 # Functionality Imports #
 from collections import defaultdict
@@ -190,6 +194,44 @@ class RobotGUI(tk.Tk):
             except:
                 pass
             time.sleep(sleep)
+
+    def update_tactile_feed(self, sleep=0.05):
+        cmap = plt.get_cmap("jet")
+        while True:
+            try:
+                raw_feed = self.robot.get_tactile_feed()
+                if raw_feed is not None:
+                    processed_feed = []
+                    for raw_ts in raw_feed:
+                        min_val, max_val = raw_ts.min(), raw_ts.max()
+                        if max_val > min_val:
+                            norm_ts = (raw_ts - min_val) / (max_val - min_val)
+                        else:
+                            norm_ts = np.zeros_like(raw_ts, dtype=np.float32)
+
+                        heatmap_rgba = cmap(norm_ts)
+                        heatmap_rgb = (heatmap_rgba[:, :, :3] * 255).astype(
+                            np.uint8
+                        )
+                        processed_feed.append(heatmap_rgb)
+
+                    self.tactile_feed = processed_feed
+            except Exception as e:
+                pass
+            time.sleep(sleep)
+
+    def set_tactile_img(self, finger_idx, widget, width=80, height=80):
+        if self.tactile_feed is None or finger_idx >= len(self.tactile_feed):
+            return
+
+        img = self.tactile_feed[finger_idx]
+        img = Image.fromarray(img)
+        # Resize using nearest neighbor so low-res tactile grids stay sharp
+        img = img.resize((width, height), Image.Resampling.NEAREST)
+        img = ImageTk.PhotoImage(img)
+
+        widget.configure(image=img)
+        widget.image = img
 
     def update_tactile_feed(self, sleep=0.05):
         while True:
@@ -1040,16 +1082,21 @@ class SceneChangesPage(tk.Frame):
 
 
 class CameraPage(tk.Frame):
+
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
         self.n_rows = 1 if len(self.controller.camera_order) <= 2 else 2
-        self.n_cols = math.ceil(len(self.controller.camera_order) / self.n_rows)
+        self.n_cols = math.ceil(
+            len(self.controller.camera_order) / self.n_rows
+        )
 
-        # Moniter Key Events #
+        # Monitor Key Events #
         self.controller.bind("<KeyRelease>", self.moniter_keys, add="+")
-        self.controller.bind("<<KeyRelease-controller>>", self.moniter_keys, add="+")
+        self.controller.bind(
+            "<<KeyRelease-controller>>", self.moniter_keys, add="+"
+        )
 
         # Page Variables #
         self.title_str = StringVar()
@@ -1057,11 +1104,17 @@ class CameraPage(tk.Frame):
         self.mode = "live"
 
         # Title #
-        title_lbl = Label(self, textvariable=self.title_str, font=Font(size=30, weight="bold"))
+        title_lbl = Label(
+            self, textvariable=self.title_str, font=Font(size=30, weight="bold")
+        )
         title_lbl.place(relx=0.5, rely=0.02, anchor="n")
 
         # Instructions #
-        instr_lbl = tk.Label(self, textvariable=self.instr_str, font=Font(size=24, slant="italic"))
+        instr_lbl = tk.Label(
+            self,
+            textvariable=self.instr_str,
+            font=Font(size=24, slant="italic"),
+        )
         instr_lbl.place(relx=0.5, rely=0.06, anchor="n")
 
         # Save / Delete Buttons #
@@ -1102,24 +1155,62 @@ class CameraPage(tk.Frame):
         # Image Variables #
         self.clicked_id = None
         self.image_boxes = []
+        self.tactile_boxes = (
+            []
+        )  # Outer list per camera cell, inner list per finger sensor
 
-        # Create Image Grid #
+        # Create Image & Tactile Grid #
         for i in range(self.n_rows):
             self.rowconfigure(i, weight=1)
             for j in range(self.n_cols):
-                if (i * self.n_cols + j) >= len(self.controller.camera_order):
+                idx = i * self.n_cols + j
+                if idx >= len(self.controller.camera_order):
                     continue
                 self.columnconfigure(j, weight=1)
 
-                # Add Image Box #
-                button = tk.Button(
-                    self, height=0, width=0, command=lambda idx=(i * self.n_cols + j): self.update_image_grid(idx)
+                # Container frame for each camera + tactile section
+                cell_frame = tk.Frame(self, bd=1, relief="solid")
+                cell_frame.grid(
+                    row=i, column=j, sticky="nsew", padx=2, pady=2
                 )
-                button.grid(row=i, column=j, sticky="s" if self.n_rows > 1 else "")
+                cell_frame.rowconfigure(0, weight=4)  # ~80% height for camera
+                cell_frame.rowconfigure(1, weight=1)  # ~20% height for tactile
+                cell_frame.columnconfigure(0, weight=1)
+
+                # Add Camera Image Box (Top) #
+                button = tk.Button(
+                    cell_frame,
+                    command=lambda idx=idx: self.update_image_grid(idx),
+                )
+                button.grid(row=0, column=0, sticky="nsew")
                 self.image_boxes.append(button)
 
-                # Start Image Thread #
-                camera_thread = threading.Thread(target=lambda idx=(i * self.n_cols + j): self.update_camera_feed(idx))
+                # Add Tactile Sensor Heatmaps (Bottom) #
+                finger_labels = []
+                if getattr(self.controller.robot, "use_tactile_sensor", False):
+                    tactile_frame = tk.Frame(cell_frame, bg="black")
+                    tactile_frame.grid(row=1, column=0, sticky="nsew")
+
+                    # 2 finger sensors side-by-side
+                    for finger_idx in range(2):
+                        tactile_frame.columnconfigure(finger_idx, weight=1)
+                        tactile_frame.rowconfigure(0, weight=1)
+                        t_lbl = tk.Label(tactile_frame, bg="black")
+                        t_lbl.grid(
+                            row=0,
+                            column=finger_idx,
+                            sticky="nsew",
+                            padx=1,
+                            pady=1,
+                        )
+                        finger_labels.append(t_lbl)
+
+                self.tactile_boxes.append(finger_labels)
+
+                # Start Feed Thread #
+                camera_thread = threading.Thread(
+                    target=lambda idx=idx: self.update_camera_feed(idx)
+                )
                 camera_thread.daemon = True
                 camera_thread.start()
 
@@ -1140,16 +1231,41 @@ class CameraPage(tk.Frame):
     def update_camera_feed(self, i, w_coeff=1.0, h_coeff=1.0):
         while True:
             not_active = self.controller.curr_frame != self
-            not_ready = len(self.controller.camera_order) != len(self.controller.cam_ids)
+            not_ready = len(self.controller.camera_order) != len(
+                self.controller.cam_ids
+            )
             if not_active or not_ready:
                 time.sleep(0.05)
                 continue
 
+            # Update Camera Image
             w, h = max(self.winfo_width(), 100), max(self.winfo_height(), 100)
             img_w = int(w / self.n_cols * w_coeff)
-            img_h = int(h / self.n_rows * h_coeff)
+            img_h = int((h * 0.8) / self.n_rows * h_coeff)
 
-            self.controller.set_img(i, widget=self.image_boxes[i], width=img_w, height=img_h)
+            self.controller.set_img(
+                i, widget=self.image_boxes[i], width=img_w, height=img_h
+            )
+
+            # Update Tactile Heatmaps (if enabled)
+            if (
+                getattr(self.controller.robot, "use_tactile_sensor", False)
+                and i < len(self.tactile_boxes)
+            ):
+                finger_labels = self.tactile_boxes[i]
+                tactile_w = max(int(img_w / 2), 40)
+                tactile_h = max(int(h * 0.15 / self.n_rows), 40)
+
+                for finger_idx, label in enumerate(finger_labels):
+                    if hasattr(self.controller, "set_tactile_img"):
+                        self.controller.set_tactile_img(
+                            finger_idx,
+                            widget=label,
+                            width=tactile_w,
+                            height=tactile_h,
+                        )
+
+            time.sleep(0.03)
 
     def moniter_keys(self, event):
         zoom = self.controller.frames[EnlargedImagePage]
@@ -1173,7 +1289,7 @@ class CameraPage(tk.Frame):
 
         instr = camera_page_instr[self.mode]
         if self.controller.oculus_controller == "left":
-            if self.mode == 'traj' or self.mode == 'practice_traj':
+            if self.mode == "traj" or self.mode == "practice_traj":
                 instr = instr.replace("A", "X")
                 instr = instr.replace("B", "Y")
 
@@ -1194,7 +1310,9 @@ class CameraPage(tk.Frame):
     def collect_trajectory(self):
         info = self.controller.info.copy()
         practice = self.mode == "practice_traj"
-        self.controller.robot.collect_trajectory(info=info, practice=practice, reset_robot=False)
+        self.controller.robot.collect_trajectory(
+            info=info, practice=practice, reset_robot=False
+        )
         self.end_trajectory()
 
     def update_timer(self, start_time):
@@ -1259,7 +1377,6 @@ class CameraPage(tk.Frame):
         else:
             self.controller.robot.delete_trajectory()
         self.controller.show_frame(RequestedBehaviorPage)
-
 
 class EnlargedImagePage(tk.Frame):
     def __init__(self, parent, controller):

@@ -2,6 +2,8 @@ import os
 import time
 from copy import deepcopy
 from datetime import date
+import matplotlib.pyplot as plt
+import numpy as np
 
 import cv2
 import h5py
@@ -153,9 +155,22 @@ class DataCollecter:
     def get_gui_ts_imgs(self, obs):
         gui_images = []
         ts_ids = list(obs["fingers"].keys())
+
+        cmap = plt.get_cmap("jet")
+
         for ts_id in ts_ids:
-            img = cv2.cvtColor(obs["fingers"][ts_id]["static_tactile"], cv2.COLOR_BGRA2RGB)
-        gui_images.append(img)
+            raw_ts = obs["fingers"][ts_id]["static_tactile"]
+
+            min_val, max_val = raw_ts.min(), raw_ts.max()
+            if max_val > min_val:
+                norm_ts = (raw_ts - min_val) / (max_val - min_val)
+            else:
+                norm_ts = np.zeros_like(raw_ts, dtype=np.float32)
+
+            heatmap_rgba = cmap(norm_ts)
+            heatmap_rgb = (heatmap_rgba[:, :, :3] * 255).astype(np.uint8)
+
+            gui_images.append(heatmap_rgb)
 
         return gui_images
 
