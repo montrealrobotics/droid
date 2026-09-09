@@ -100,6 +100,9 @@ class RobotEnv(gym.Env):
     def read_tactile_sensor(self):
         return self.tactile.read_tactile_sensor()
 
+    def read_tactile_sensor_frame(self):
+        return self.tactile.read_tactile_sensor_frame()
+
     def get_state(self):
         read_start = time_ms()
         state_dict, timestamp_dict = self._robot.get_robot_state()

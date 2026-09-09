@@ -16,7 +16,7 @@ data_dir = os.path.join(dir_path, "../../data")
 
 
 class DataCollecter:
-    def __init__(self, env, controller, policy=None, save_data=True, save_traj_dir=None):
+    def __init__(self, env, controller, policy=None, save_data=True, save_traj_dir=None, tactile_sensor=False):
         self.env = env
         self.controller = controller
         self.policy = policy
@@ -25,6 +25,7 @@ class DataCollecter:
         self.traj_running = False
         self.traj_saved = False
         self.obs_pointer = {}
+        self.use_tactile_sensor = tactile_sensor
 
         # Get Camera Info #
         self.cam_ids = list(env.camera_reader.camera_dict.keys())
@@ -149,6 +150,15 @@ class DataCollecter:
 
         return gui_images, all_cam_ids
 
+    def get_gui_ts_imgs(self, obs):
+        gui_images = []
+        ts_ids = list(obs["fingers"].keys())
+        for ts_id in ts_ids:
+            img = cv2.cvtColor(obs["fingers"][ts_id]["static_tactile"], cv2.COLOR_BGRA2RGB)
+        gui_images.append(img)
+
+        return gui_images
+
     def get_camera_feed(self):
         if self.traj_running:
             if "image" not in self.obs_pointer:
@@ -158,6 +168,16 @@ class DataCollecter:
             obs = self.env.read_cameras()[0]
         gui_images, cam_ids = self.get_gui_imgs(obs)
         return gui_images, cam_ids
+
+    def get_tactile_feed(self):
+        if self.traj_running:
+            if "fingers" not in self.obs_pointer:
+                raise ValueError
+            obs = deepcopy(self.obs_pointer)[-1]
+        else:
+            obs = self.env.read_tactile_sensor_frame()[0]
+        gui_ts_images = self.get_gui_ts_imgs(obs)
+        return gui_ts_images
 
     def change_trajectory_status(self, success=False):
         if (self.last_traj_path is None) or (success == self.traj_saved):

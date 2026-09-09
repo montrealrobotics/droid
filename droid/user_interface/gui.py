@@ -24,7 +24,7 @@ from droid.user_interface.text import *
 
 
 class RobotGUI(tk.Tk):
-    def __init__(self, robot=None, fullscreen=False, right_controller=True):
+    def __init__(self, robot=None, fullscreen=False, right_controller=True, tactile_sensors=False):
         # Initialize #
         super().__init__()
         self.geometry("1500x1200")
@@ -96,6 +96,13 @@ class RobotGUI(tk.Tk):
         camera_thread = threading.Thread(target=self.update_camera_feed)
         camera_thread.daemon = True
         camera_thread.start()
+
+        if self.robot.use_tactile_sensor:
+            # Update Tactile Feed #
+            self.tactile_feed = None
+            tactile_thread = threading.Thread(target=self.update_tactile_feed)
+            tactile_thread.daemon = True
+            tactile_thread.start()
 
         # Start Program! #
         self.last_frame_change = 0
@@ -180,6 +187,14 @@ class RobotGUI(tk.Tk):
         while True:
             try:
                 self.camera_feed, self.cam_ids = self.robot.get_camera_feed()
+            except:
+                pass
+            time.sleep(sleep)
+
+    def update_tactile_feed(self, sleep=0.05):
+        while True:
+            try:
+                self.tactile_feed = self.robot.get_tactile_feed()
             except:
                 pass
             time.sleep(sleep)
