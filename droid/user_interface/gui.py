@@ -203,13 +203,8 @@ class RobotGUI(tk.Tk):
                 if raw_feed is not None:
                     processed_feed = []
                     for raw_ts in raw_feed:
-                        min_val, max_val = raw_ts.min(), raw_ts.max()
-                        if max_val > min_val:
-                            norm_ts = (raw_ts - min_val) / (max_val - min_val)
-                        else:
-                            norm_ts = np.zeros_like(raw_ts, dtype=np.float32)
 
-                        heatmap_rgba = cmap(norm_ts)
+                        heatmap_rgba = cmap(raw_ts)
                         heatmap_rgb = (heatmap_rgba[:, :, :3] * 255).astype(
                             np.uint8
                         )
@@ -1246,8 +1241,7 @@ class CameraPage(tk.Frame):
             self.controller.set_img(
                 i, widget=self.image_boxes[i], width=img_w, height=img_h
             )
-
-            # Update Tactile Heatmaps (if enabled)
+            # Update Tactile Images
             if (
                 getattr(self.controller.robot, "use_tactile_sensor", False)
                 and i < len(self.tactile_boxes)

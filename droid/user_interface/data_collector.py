@@ -161,18 +161,23 @@ class DataCollecter:
         for ts_id in ts_ids:
             raw_ts = obs["fingers"][ts_id]["static_tactile"]
 
-            min_val, max_val = raw_ts.min(), raw_ts.max()
-            if max_val > min_val:
-                norm_ts = (raw_ts - min_val) / (max_val - min_val)
-            else:
-                norm_ts = np.zeros_like(raw_ts, dtype=np.float32)
-
-            heatmap_rgba = cmap(norm_ts)
+            heatmap_rgba = cmap(raw_ts)
             heatmap_rgb = (heatmap_rgba[:, :, :3] * 255).astype(np.uint8)
 
             gui_images.append(heatmap_rgb)
 
         return gui_images
+
+    def get_gui_ts_img(self, img):
+
+        cmap = plt.get_cmap("jet")
+
+        raw_ts = img
+
+        heatmap_rgba = cmap(raw_ts)
+        heatmap_rgb = (heatmap_rgba[:, :, :3] * 255).astype(np.uint8)
+
+        return heatmap_rgb
 
     def get_camera_feed(self):
         if self.traj_running:
@@ -185,12 +190,13 @@ class DataCollecter:
         return gui_images, cam_ids
 
     def get_tactile_feed(self):
-        if self.traj_running:
-            if "fingers" not in self.obs_pointer:
-                raise ValueError
-            obs = deepcopy(self.obs_pointer)[-1]
-        else:
-            obs = self.env.read_tactile_sensor_frame()[0]
+        # if self.traj_running:
+        #     if "tactile_image_stack" not in self.obs_pointer:
+        #         raise ValueError
+        #     obs = deepcopy(self.obs_pointer['tactile_image_stack'][-1])
+        #     gui_ts_images = self.get_gui_ts_img(obs)
+        # else:
+        obs = self.env.read_tactile_sensor_frame()[0]
         gui_ts_images = self.get_gui_ts_imgs(obs)
         return gui_ts_images
 

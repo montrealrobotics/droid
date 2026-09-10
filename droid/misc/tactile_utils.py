@@ -19,7 +19,7 @@ def normalize_tactile_frame(
 
 def tactile_frame_to_image(
     norm_tactile_frame: np.ndarray,
-    target_size: tuple[int, int] = DEFAULT_TACTILE_IMAGE_SIZE
+    target_size=DEFAULT_TACTILE_IMAGE_SIZE
 ) -> np.ndarray:
     """
     Converts single or set of tactile frames to image.
@@ -44,9 +44,9 @@ def tactile_frame_to_image(
 
 
 def tactile_image_stack(
-    subframe_list: list[np.ndarray],
-    max_capacity: float = DEFAULT_MAX_FORCE_CAPACITY,
-    target_size: tuple[int, int] = DEFAULT_TACTILE_IMAGE_SIZE
+    subframe_list,
+    max_capacity=DEFAULT_MAX_FORCE_CAPACITY,
+    target_size=DEFAULT_TACTILE_IMAGE_SIZE
 ) -> np.ndarray:
     """
     Takes a list of frames
@@ -54,7 +54,11 @@ def tactile_image_stack(
     """
     image_list = []
     for raw_f in subframe_list:
-        norm_f = normalize_tactile_frame(raw_f, max_capacity=max_capacity)
+        f0 = raw_f['fingers']['0']['static_tactile']
+        f1 = raw_f['fingers']['1']['static_tactile']
+        norm_f0 = normalize_tactile_frame(f0, max_capacity=max_capacity)
+        norm_f1 = normalize_tactile_frame(f1, max_capacity=max_capacity)
+        norm_f = np.stack((norm_f0, norm_f1))
         img_f = tactile_frame_to_image(norm_f, target_size=target_size)
         image_list.append(img_f)
 
@@ -62,9 +66,9 @@ def tactile_image_stack(
 
 
 def average_tactile_subframes(
-    subframe_list: list[np.ndarray],
-    max_capacity: float = DEFAULT_MAX_FORCE_CAPACITY,
-    target_size: tuple[int, int] = DEFAULT_TACTILE_IMAGE_SIZE
+    subframe_list,
+    max_capacity=DEFAULT_MAX_FORCE_CAPACITY,
+    target_size=DEFAULT_TACTILE_IMAGE_SIZE
 ) -> np.ndarray:
     """
     Takes a list of frames

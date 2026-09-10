@@ -166,8 +166,8 @@ class TactileSensorInterface:
         if len(obs_list) == 0:
             return None, timestamp_dict
 
-        timestamp_dict["tactile_read_start"] = obs_list[0]["observation_timestamp"]
-        timestamp_dict["tactile_read_end"] = obs_list[-1]["observation_timestamp"]
+        timestamp_dict["tactile_read_start"] = obs_list[0]['fingers']['0']["observation_timestamp"]
+        timestamp_dict["tactile_read_end"] = obs_list[-1]['fingers']['0']["observation_timestamp"]
 
         return obs_list, timestamp_dict
 
