@@ -84,6 +84,7 @@ class DataCollecter:
         if practice or (not self.save_data):
             save_filepath = None
             recording_folderpath = None
+            recording_tactile_folderpath = None
         else:
             if len(self.full_cam_ids) != 6:
                 raise ValueError("WARNING: User is trying to collect data without all three cameras running!")
@@ -161,7 +162,13 @@ class DataCollecter:
         for ts_id in ts_ids:
             raw_ts = obs["fingers"][ts_id]["static_tactile"]
 
-            heatmap_rgba = cmap(raw_ts)
+            # raw_ts_float = raw_ts.astype(np.float32)
+
+            smoothed_ts = cv2.resize(
+                raw_ts, (80, 140), interpolation=cv2.INTER_CUBIC
+            )
+
+            heatmap_rgba = cmap(smoothed_ts)
             heatmap_rgb = (heatmap_rgba[:, :, :3] * 255).astype(np.uint8)
 
             gui_images.append(heatmap_rgb)
@@ -220,3 +227,4 @@ class DataCollecter:
             os.rename(self.last_traj_path, new_traj_path)
             self.last_traj_path = new_traj_path
             self.traj_saved = False
+

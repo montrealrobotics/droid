@@ -6,6 +6,7 @@ import time
 import tkinter as tk
 import webbrowser
 import matplotlib.pyplot as plt
+import cv2
 
 from tkinter import CENTER, StringVar, Label
 from tkinter.font import Font
@@ -192,26 +193,6 @@ class RobotGUI(tk.Tk):
             try:
                 self.camera_feed, self.cam_ids = self.robot.get_camera_feed()
             except:
-                pass
-            time.sleep(sleep)
-
-    def update_tactile_feed(self, sleep=0.05):
-        cmap = plt.get_cmap("jet")
-        while True:
-            try:
-                raw_feed = self.robot.get_tactile_feed()
-                if raw_feed is not None:
-                    processed_feed = []
-                    for raw_ts in raw_feed:
-
-                        heatmap_rgba = cmap(raw_ts)
-                        heatmap_rgb = (heatmap_rgba[:, :, :3] * 255).astype(
-                            np.uint8
-                        )
-                        processed_feed.append(heatmap_rgb)
-
-                    self.tactile_feed = processed_feed
-            except Exception as e:
                 pass
             time.sleep(sleep)
 
@@ -834,12 +815,12 @@ class SceneConfigurationPage(tk.Frame):
 
         # Check that cameras are calibrated #
         calib_info_dict = self.controller.robot.check_calibration_info(remove_hand_camera=True)
-        if len(calib_info_dict["missing"]) > 0:
-            self.controller.show_frame(IncompleteCalibration)
-            return
-        if len(calib_info_dict["old"]) > 0:
-            self.controller.show_frame(OldCalibration)
-            return
+        # if len(calib_info_dict["missing"]) > 0:
+        #     self.controller.show_frame(IncompleteCalibration)
+        #     return
+        # if len(calib_info_dict["old"]) > 0:
+        #     self.controller.show_frame(OldCalibration)
+        #     return
 
         # Check that scene isn't stale #
         last_scene_change = load_gui_info()["scene_id_timestamp"]
@@ -1076,43 +1057,107 @@ class SceneChangesPage(tk.Frame):
         self.sample_change()
 
 
+
 class CameraPage(tk.Frame):
 
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
-        self.n_rows = 1 if len(self.controller.camera_order) <= 2 else 2
-        self.n_cols = math.ceil(
-            len(self.controller.camera_order) / self.n_rows
+        self.num_cameras = len(self.controller.camera_order)
+        self.has_tactile = getattr(
+            self.controller.robot, "use_tactile_sensor", False
         )
 
-        # Monitor Key Events #
+        # Monitor Key Events
         self.controller.bind("<KeyRelease>", self.moniter_keys, add="+")
         self.controller.bind(
             "<<KeyRelease-controller>>", self.moniter_keys, add="+"
         )
 
-        # Page Variables #
+        # Page Variables
         self.title_str = StringVar()
         self.instr_str = StringVar()
         self.mode = "live"
+        self.clicked_id = None
 
-        # Title #
+        self.camera_boxes = []
+        self.tactile_boxes = []
+
+        # --- Grid Header Layout ---
+        self.columnconfigure(0, weight=1)
+
+        header_frame = tk.Frame(self)
+        header_frame.grid(row=0, column=0, sticky="ew", pady=(10, 5))
+
         title_lbl = Label(
-            self, textvariable=self.title_str, font=Font(size=30, weight="bold")
+            header_frame,
+            textvariable=self.title_str,
+            font=Font(size=28, weight="bold"),
         )
-        title_lbl.place(relx=0.5, rely=0.02, anchor="n")
+        title_lbl.pack(anchor="center")
 
-        # Instructions #
-        instr_lbl = tk.Label(
-            self,
+        instr_lbl = Label(
+            header_frame,
             textvariable=self.instr_str,
-            font=Font(size=24, slant="italic"),
+            font=Font(size=20, slant="italic"),
         )
-        instr_lbl.place(relx=0.5, rely=0.06, anchor="n")
+        instr_lbl.pack(anchor="center")
 
-        # Save / Delete Buttons #
+        # --- Content Grid Frame ---
+        grid_container = tk.Frame(self)
+        grid_container.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
+        self.rowconfigure(1, weight=1)
+
+        grid_container.rowconfigure(0, weight=1)
+        grid_container.rowconfigure(1, weight=1)
+
+        for c in range(3):
+            grid_container.columnconfigure(c, weight=2, uniform="cameras")
+        if self.has_tactile:
+            grid_container.columnconfigure(3, weight=2)
+
+        for cam_idx in range(self.num_cameras):
+            r = cam_idx // 3
+            c = cam_idx % 3
+
+            cell_frame = tk.Frame(grid_container, bd=2, relief="groove")
+            cell_frame.grid(row=r, column=c, sticky="nsew", padx=3, pady=3)
+            cell_frame.rowconfigure(0, weight=1)
+            cell_frame.columnconfigure(0, weight=1)
+
+            btn = tk.Button(
+                cell_frame,
+                command=lambda idx=cam_idx: self.update_image_grid(idx),
+            )
+            btn.grid(row=0, column=0, sticky="nsew")
+            self.camera_boxes.append(btn)
+
+        if self.has_tactile:
+            for finger_idx in range(2):
+                cell_frame = tk.Frame(grid_container, bd=2, relief="groove")
+                cell_frame.grid(
+                    row=finger_idx, column=3, sticky="nsew", padx=3, pady=3
+                )
+                cell_frame.rowconfigure(0, weight=1)
+                cell_frame.columnconfigure(0, weight=1)
+
+                lbl = tk.Label(
+                    cell_frame,
+                    # bg="black",
+                    # fg="white",
+                    text=f"Tactile F{finger_idx}",
+                    font=Font(size=10, weight="bold"),
+                )
+                lbl.grid(row=0, column=0, sticky="nsew")
+                self.tactile_boxes.append(lbl)
+
+        # Start Background Feed Updater Thread
+        feed_thread = threading.Thread(target=self.update_all_feeds)
+        feed_thread.daemon = True
+        feed_thread.start()
+
+        # Save / Delete Overlay Buttons
         self.save_btn = tk.Button(
             self,
             text="SAVE",
@@ -1134,129 +1179,54 @@ class CameraPage(tk.Frame):
             command=lambda save=False: self.edit_trajectory(save),
         )
 
-        # Timer #
-        self.timer_on = False
+        # Timer Widget
         self.time_str = StringVar()
         self.timer = tk.Button(
             self,
             textvariable=self.time_str,
             highlightbackground="black",
-            font=Font(size=40, weight="bold"),
+            font=Font(size=30, weight="bold"),
             padx=3,
             pady=5,
             borderwidth=10,
         )
 
-        # Image Variables #
-        self.clicked_id = None
-        self.image_boxes = []
-        self.tactile_boxes = (
-            []
-        )  # Outer list per camera cell, inner list per finger sensor
-
-        # Create Image & Tactile Grid #
-        for i in range(self.n_rows):
-            self.rowconfigure(i, weight=1)
-            for j in range(self.n_cols):
-                idx = i * self.n_cols + j
-                if idx >= len(self.controller.camera_order):
-                    continue
-                self.columnconfigure(j, weight=1)
-
-                # Container frame for each camera + tactile section
-                cell_frame = tk.Frame(self, bd=1, relief="solid")
-                cell_frame.grid(
-                    row=i, column=j, sticky="nsew", padx=2, pady=2
-                )
-                cell_frame.rowconfigure(0, weight=4)  # ~80% height for camera
-                cell_frame.rowconfigure(1, weight=1)  # ~20% height for tactile
-                cell_frame.columnconfigure(0, weight=1)
-
-                # Add Camera Image Box (Top) #
-                button = tk.Button(
-                    cell_frame,
-                    command=lambda idx=idx: self.update_image_grid(idx),
-                )
-                button.grid(row=0, column=0, sticky="nsew")
-                self.image_boxes.append(button)
-
-                # Add Tactile Sensor Heatmaps (Bottom) #
-                finger_labels = []
-                if getattr(self.controller.robot, "use_tactile_sensor", False):
-                    tactile_frame = tk.Frame(cell_frame, bg="black")
-                    tactile_frame.grid(row=1, column=0, sticky="nsew")
-
-                    # 2 finger sensors side-by-side
-                    for finger_idx in range(2):
-                        tactile_frame.columnconfigure(finger_idx, weight=1)
-                        tactile_frame.rowconfigure(0, weight=1)
-                        t_lbl = tk.Label(tactile_frame, bg="black")
-                        t_lbl.grid(
-                            row=0,
-                            column=finger_idx,
-                            sticky="nsew",
-                            padx=1,
-                            pady=1,
-                        )
-                        finger_labels.append(t_lbl)
-
-                self.tactile_boxes.append(finger_labels)
-
-                # Start Feed Thread #
-                camera_thread = threading.Thread(
-                    target=lambda idx=idx: self.update_camera_feed(idx)
-                )
-                camera_thread.daemon = True
-                camera_thread.start()
-
     def update_image_grid(self, i):
         if self.clicked_id is None:
-            # Get Image Of Interest
             self.clicked_id = i
         elif self.clicked_id == i:
-            # If Double Clicked, Enlarge It
             self.controller.frames[EnlargedImagePage].set_image_index(i)
             self.controller.show_frame(EnlargedImagePage, wait=True)
             self.clicked_id = None
         else:
-            # If Alternate Image Clicked, Swap Them
             self.controller.swap_img_order(self.clicked_id, i)
             self.clicked_id = None
 
-    def update_camera_feed(self, i, w_coeff=1.0, h_coeff=1.0):
+    def update_all_feeds(self):
         while True:
             not_active = self.controller.curr_frame != self
-            not_ready = len(self.controller.camera_order) != len(
-                self.controller.cam_ids
-            )
+            not_ready = len(self.controller.camera_order) != self.num_cameras
             if not_active or not_ready:
                 time.sleep(0.05)
                 continue
 
-            # Update Camera Image
-            w, h = max(self.winfo_width(), 100), max(self.winfo_height(), 100)
-            img_w = int(w / self.n_cols * w_coeff)
-            img_h = int((h * 0.8) / self.n_rows * h_coeff)
+            # Update Camera Feeds
+            for i, btn in enumerate(self.camera_boxes):
+                btn_w = btn.winfo_width()
+                btn_h = btn.winfo_height()
+                img_w = btn_w if btn_w > 10 else 300
+                img_h = btn_h if btn_h > 10 else 200
 
-            self.controller.set_img(
-                i, widget=self.image_boxes[i], width=img_w, height=img_h
-            )
-            # Update Tactile Images
-            if (
-                getattr(self.controller.robot, "use_tactile_sensor", False)
-                and i < len(self.tactile_boxes)
-            ):
-                finger_labels = self.tactile_boxes[i]
-                tactile_w = max(int(img_w / 2), 40)
-                tactile_h = max(int(h * 0.15 / self.n_rows), 40)
+                self.controller.set_img(
+                    i, widget=btn, width=img_w, height=img_h
+                )
 
-                for finger_idx, label in enumerate(finger_labels):
+            # Update Tactile Feeds
+            if self.has_tactile:
+                for finger_idx, lbl in enumerate(self.tactile_boxes):
                     if hasattr(self.controller, "set_tactile_img"):
                         self.controller.set_tactile_img(
-                            finger_idx,
-                            widget=label,
-                            width=tactile_w,
-                            height=tactile_h,
+                            finger_idx, widget=lbl, width=240, height=420
                         )
 
             time.sleep(0.03)
@@ -1268,33 +1238,27 @@ class CameraPage(tk.Frame):
             return
 
         shift = event.keysym in ["Shift_L", "Shift_R"]
-
         if self.mode == "live" and shift:
             self.controller.show_frame(self.home_frame, refresh_page=False)
 
     def initialize_page(self):
-        # Clear Widges #
         self.save_btn.place_forget()
         self.delete_btn.place_forget()
         self.timer.place_forget()
 
-        # Update Text #
         title = camera_page_title[self.mode]
-
         instr = camera_page_instr[self.mode]
+
         if self.controller.oculus_controller == "left":
-            if self.mode == "traj" or self.mode == "practice_traj":
-                instr = instr.replace("A", "X")
-                instr = instr.replace("B", "Y")
+            if self.mode in ["traj", "practice_traj"]:
+                instr = instr.replace("A", "X").replace("B", "Y")
 
         self.title_str.set(title)
         self.instr_str.set(instr)
 
-        # Add Mode Specific Stuff #
         if "traj" in self.mode:
             self.controller.robot.reset_robot(randomize=True)
-
-            self.timer.place(relx=0.79, rely=0.01)
+            self.timer.place(relx=0.82, rely=0.01)
             self.update_timer(time.time())
 
             traj_thread = threading.Thread(target=self.collect_trajectory)
@@ -1313,29 +1277,25 @@ class CameraPage(tk.Frame):
         time_passed = time.time() - start_time
         zoom = self.controller.frames[EnlargedImagePage]
         page_inactive = self.controller.curr_frame not in [self, zoom]
-        hide_timer = "traj" not in self.mode
-        if page_inactive or hide_timer:
+        if page_inactive or "traj" not in self.mode:
             return
 
         minutes_str = str(int(time_passed / 60))
         curr_seconds = int(time_passed) % 60
-
-        if curr_seconds < 10:
-            seconds_str = "0{0}".format(curr_seconds)
-        else:
-            seconds_str = str(curr_seconds)
+        seconds_str = (
+            f"0{curr_seconds}" if curr_seconds < 10 else str(curr_seconds)
+        )
 
         if not self.controller.robot.traj_running:
             start_time = time.time()
 
-        self.time_str.set("{0}:{1}".format(minutes_str, seconds_str))
+        self.time_str.set(f"{minutes_str}:{seconds_str}")
         self.controller.after(100, lambda: self.update_timer(start_time))
 
     def end_trajectory(self):
         save = self.controller.robot.traj_saved
         practice = self.mode == "practice_traj"
 
-        # Update Based Off Success / Failure #
         if practice:
             pass
         elif save:
@@ -1343,20 +1303,21 @@ class CameraPage(tk.Frame):
         else:
             self.controller.frames[RequestedBehaviorPage].keep_last_task()
 
-        # Check For Scene Changes #
         num_traj = self.controller.num_traj_saved
         move_robot = (num_traj % move_robot_frequency == 0) and (num_traj > 0)
         scene_change = (np.random.uniform() < scene_change_prob) or move_robot
 
-        # Move To Next Page
-        time.sleep(0.1)  # Prevents bug where robot doesnt wait to reset
-        if practice:
-            post_reset_page = SceneConfigurationPage
-        elif scene_change:
-            post_reset_page = SceneChangesPage
-        else:
-            post_reset_page = RequestedBehaviorPage
-        self.controller.frames[CanRobotResetPage].set_next_page(post_reset_page)
+        time.sleep(0.1)
+        post_reset_page = (
+            SceneConfigurationPage
+            if practice
+            else (
+                SceneChangesPage if scene_change else RequestedBehaviorPage
+            )
+        )
+        self.controller.frames[CanRobotResetPage].set_next_page(
+            post_reset_page
+        )
         self.controller.show_frame(CanRobotResetPage)
 
     def set_home_frame(self, frame):

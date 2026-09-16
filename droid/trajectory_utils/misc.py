@@ -129,6 +129,8 @@ def collect_trajectory(
         if end_traj:
             if recording_folderpath:
                 env.camera_reader.stop_recording()
+            if recording_tactile_folderpath and env.tactile is not None:
+                env.tactile.stop_recording()
             if save_filepath:
                 traj_writer.close(metadata=controller_info)
             return controller_info
@@ -542,3 +544,4 @@ def visualize_trajectory(
     traj_reader.close()
     if recording_folderpath:
         camera_reader.disable_cameras()
+

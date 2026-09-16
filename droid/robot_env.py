@@ -131,14 +131,14 @@ class RobotEnv(gym.Env):
 
         # Tactile sensor #
         if self.enable_tactile and self.tactile:
-            tactile_obs_list, tactile_timestamp_dict = self.read_tactile_sensor()
-            if self.action_space == "policy_action_space":
-                if tactile_obs_list is not None:
-                    tactile_stack = tactile_image_stack(tactile_obs_list)
-                else:
-                    tactile_stack = np.zeros((32, 32, 1), dtype=np.float32)
+            tactile_obs, tactile_timestamp_dict = self.read_tactile_sensor()
+            # if self.action_space == "policy_action_space":
+            #     if tactile_obs_list is not None:
+            #         tactile_stack = tactile_image_stack(tactile_obs_list)
+            #     else:
+            #         tactile_stack = np.zeros((32, 32, 1), dtype=np.float32)
 
-                obs_dict["tactile_image_stack"] = tactile_stack
+            obs_dict["tactile_image_stack"] = tactile_obs
             obs_dict["timestamp"]["tactile"] = tactile_timestamp_dict
 
         # Camera Readings #
@@ -159,3 +159,4 @@ class RobotEnv(gym.Env):
         obs_dict["camera_intrinsics"] = intrinsics
 
         return obs_dict
+
