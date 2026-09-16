@@ -54,8 +54,8 @@ def tactile_image_stack(
     """
     image_list = []
     for raw_f in subframe_list:
-        f0 = raw_f['fingers']['0']['static_tactile']
-        f1 = raw_f['fingers']['1']['static_tactile']
+        f0 = raw_f[0]
+        f1 = raw_f[1]
         norm_f0 = normalize_tactile_frame(f0, max_capacity=max_capacity)
         norm_f1 = normalize_tactile_frame(f1, max_capacity=max_capacity)
         norm_f = np.stack((norm_f0, norm_f1))

@@ -355,6 +355,7 @@ def load_trajectory(
 
     horizon = traj_reader.length()
     timestep_list = []
+    start_ts = tactile_data["timestamps"]
 
     # Choose Timesteps To Save #
     if num_samples_per_traj:
@@ -373,23 +374,27 @@ def load_trajectory(
             # DROID stores timestamps in observation["timestamp"]
             # Get start and end read time for tactile
             current_ts_dict = timestep["observation"]["timestamp"].get("tactile", None)
-            prev_ts = current_ts_dict['tactile_read_start']
-            current_ts = current_ts_dict['tactile_read_end']
+            end_ts = current_ts_dict['tactile_read_start']
 
-            t_mask = (tactile_data["timestamps"] >= prev_ts) & (tactile_data["timestamps"] <= current_ts)
+            t_mask = (tactile_data["timestamps"] >= start_ts) & (tactile_data["timestamps"] <= end_ts)
             sub_indices = np.where(t_mask)[0]
-            # due to buffer size there can only be a max of 23 frames
+            # if reading at 1khz there should be around 66 frames
             if len(sub_indices) == 0:
                 # if no frames, grab the nearest?
-                nearest_idx = np.argmin(np.abs(tactile_data["timestamps"] - current_ts))
+                nearest_idx = np.argmin(np.abs(tactile_data["timestamps"] - end_ts))
                 sub_indices = np.array([nearest_idx])
 
+            # separate out the tactile frames
+            sub_frames = tactile_data["frames"][sub_indices]
+
             # Convert to image, average or stack frames?
-            average_tactile_image = average_tactile_subframes(sub_indices)
-            stacked_tactile_image = tactile_image_stack(sub_indices)
+            average_tactile_image = average_tactile_subframes(sub_frames)
+            stacked_tactile_image = tactile_image_stack(sub_frames)
 
             timestep["observation"]["tactile_image_stack"] = stacked_tactile_image
             timestep["observation"]["average_tactile_image"] = average_tactile_image
+
+            start_ts = tactile_data["timestamps"][sub_indices[-1] + 1]
 
         if read_recording_folderpath:
             timestamp_dict = timestep["observation"]["timestamp"]["cameras"]
