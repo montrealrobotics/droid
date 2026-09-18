@@ -1,0 +1,134 @@
+# Any config related to the robot setup, observation, action will be stored here.
+
+
+# ===============================
+# ===== Robot Setup Related =====
+# ===============================
+
+policy_name: pi0.5-DROID # Descriptive name; OpenPI server config is pi05_droid.
+robot_name: franka_research_3 # Confirmed by operator; DROID robot_type is fr3.
+gripper_name: robotiq_2f_85 # Model confirmed by the robot operator.
+# Operator-reported label: 2023, S/N C-47119; fitted with TSF-85 tactile fingertips.
+is_biarm: false # bool (Required)
+uses_mobile_base: false # bool (Required)
+# Nominal DROID rate from RobotEnv.control_hz and RobotIKSolver.control_hz.
+# real_main_dl_oopsie.py paces dispatches to this target. Synchronous inference
+# can reduce the achieved rate; measured timing is saved in session rollouts.csv.
+control_freq: 15
+# The Oopsie collector records all three RGB views.
+# The policy itself receives only the selected external view (default left) + wrist.
+camera_names:
+  - left   # ZED 29712701, left stereo image
+  - right  # ZED 23960472, left stereo image
+  - wrist  # ZED 11744905, left stereo image
+
+
+# ===============================
+# ===== Observation Related =====
+# ===============================
+
+# Observation keys. Options: "joint_position", "gripper_position", "cartesian_position", "base_position"
+# "gripper_position" is always required.
+# Joint-space actions require "joint_position"; Cartesian actions require "cartesian_position".
+# All three state arrays are returned by the collector extract_observation().
+robot_state_keys:
+  - joint_position
+  - cartesian_position
+  - gripper_position
+
+# If cartesian_position is in the robot_state_keys, specify the orientation representation. Options:
+# 1. "euler_{format}" (where format is "xyz", "xyx" ... (shape (3,))
+# 2. "quat" (quaternion should be scalar last, shape (4,))
+# 3. "matrix" (rotation matrix, shape (3, 3))
+# 4. "rot6d" (first two columns of the rotation matrix, flattened, shape (6,). This is used by openpi)
+# 5. "rotvec" (axis-angle, shape (3,))
+# DROID get_robot_state() uses quat_to_euler(), whose convention is xyz radians.
+robot_state_orientation_representation: euler_xyz
+
+
+# ==========================
+# ===== Action Related =====
+# ==========================
+
+# Action space (Required)
+# Options: "joint_velocity", "joint_position", "cartesian_position", "cartesian_velocity"
+# Gripper options: "gripper_position", "gripper_velocity", "gripper_binary"
+# Base options: "base_velocity", "base_position"
+# Record the final clipped command passed to env.step(): action[:7], action[7:].
+# DROID joint_velocity is a normalized [-1, 1] command, not raw rad/s.
+# The local adapter converts it to a joint-position delta and a position target.
+# DROID uses position control for the gripper; the script restricts it to 0 or 1.
+# DROID mapping: 0 = open, 1 = closed.
+action_space:
+  - joint_velocity
+  - gripper_binary
+
+
+# If action space is cartesian position, specify the orientation representation. Options:
+# 1. "euler_{format}" (where format is "xyz", "xyx" ... (shape (3,))
+# 2. "quat" (quaternion should be scalar last, shape (4,))
+# 3. "matrix" (rotation matrix, shape (3, 3))
+# 4. "rot6d" (first two columns of the rotation matrix, flattened, shape (6,). This is used by openpi)
+# 5. "rotvec" (axis-angle, shape (3,))
+orientation_representation: null # No Cartesian action to convert.
+
+
+# ==========================
+# ===== Optional Keys =====
+# ==========================
+
+# Required when "joint_position" is in robot_state_keys.
+# Identifies what each index in robot_state["joint_position"] corresponds to.
+# The selected DROID franka/fr3.xml retains these panda_joint* identifiers.
+# They label the FR3 arm joints in order; the script does not reorder them.
+robot_state_joint_names:
+  - panda_joint1
+  - panda_joint2
+  - panda_joint3
+  - panda_joint4
+  - panda_joint5
+  - panda_joint6
+  - panda_joint7
+
+# For knowing what each index in the action["joint_position"] corresponds to
+action_joint_names:
+  - panda_joint1
+  - panda_joint2
+  - panda_joint3
+  - panda_joint4
+  - panda_joint5
+  - panda_joint6
+  - panda_joint7
+
+
+# The high-level command interface used by real_main_dl.py.
+# The underlying Franka implementation starts a Cartesian impedance controller.
+controller: joint_velocity
+# Runtime gains and calibration are not specified in real_main_dl.py.
+gains: null
+intrinsic_calibration_matrix: null
+extrinsic_calibration_matrix: null
+
+
+# ====================================
+# ===== Additional Data (Optional) ===
+# ====================================
+
+# Sensor streams beyond robot state and cameras (force/torque, IMU, tactile, audio features ...).
+# Every declared key must then be passed to record_step(..., additional_data={key: value})
+# on every step, with the same shape each step.
+# Keys may contain letters, digits, "_" and "-", and must not repeat a camera name or each other, ignoring case.
+#   sensor:      str (Required) the device recording the data (Example: "ATI Mini45")
+#   sensor_info: str or mapping (Optional) units, frame, mounting, native rate ...
+#   format:      "array" (default) stored as a (T, ...) numeric dataset, capped per episode;
+#                "video" for image-like data (H, W, 3) uint8, stored as an MP4 like a camera
+# TSF-85 fingertips are present, but this script does not enable/read tactile data.
+# Declare sensor streams only when they are actually passed to the recorder.
+additional_data: {}
+#  wrist_ft:
+#    sensor: # str
+#    sensor_info: # str or mapping
+#  tactile_left:
+#    sensor: # str
+#    format: video
+# ========================
