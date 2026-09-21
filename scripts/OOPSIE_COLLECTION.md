@@ -51,7 +51,7 @@ discarded and the collector exits with an explanatory message.
 
 ## Multiple operators and output
 
-Each launch creates a timestamped session under `/home/r2d2/oopsie/recordings`.
+The default folder is named for Daniel Lawson (DL). Each launch creates a timestamped session under `/home/r2d2/oopsie/recordings-dl`.
 Each episode HDF5 stores `operator_name`. Daniel Lawson is the default; every
 other operator must supply their own `--operator-name "Full Name"`.
 The annotator defaults to that operator; use `--annotator-name "Full Name"`

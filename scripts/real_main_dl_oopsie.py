@@ -44,7 +44,7 @@ class Args:
 
     robot_profile: Path = SCRIPT_DIR / "robot_profiles" / "droid_pi05.yaml"
 
-    data_root_dir: Path = Path.home() / "oopsie" / "recordings"
+    data_root_dir: Path = Path.home() / "oopsie" / "recordings-dl"
 
     resume_session_name: Optional[str] = None
 
